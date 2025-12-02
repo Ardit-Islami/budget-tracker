@@ -1,0 +1,25 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Data Files
+data/raw/*
+data/staged/*
+data/master/*
+data/logs/*
+
+# OS Files
+.DS_Store
+
+# Keep .gitkeep (structure)
+!data/raw/.gitkeep
+!data/staged/.gitkeep
+!data/master/.gitkeep
+!data/logs/.gitkeep
