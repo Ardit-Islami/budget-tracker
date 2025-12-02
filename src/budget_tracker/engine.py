@@ -4,8 +4,6 @@ from pydantic import BaseModel, field_validator, ValidationError
 
 from budget_tracker.config import settings, logger
 
-
-# ==================
 # DATA MODELS
 class MerchantRule(BaseModel):
     id: str
@@ -16,10 +14,6 @@ class MerchantRule(BaseModel):
 
     @field_validator("aliases", mode="before")
     def normalize_aliases(cls, v):
-        """
-        Ensure aliases are a list of lowercased, stripped strings.
-        Empty / falsy entries are dropped.
-        """
         if not isinstance(v, list):
             return []
         normalized = []
@@ -38,9 +32,6 @@ class PatternRule(BaseModel):
 
     @field_validator("pattern", mode="before")
     def normalize_pattern(cls, v):
-        """
-        Store pattern as lowercased, stripped string.
-        """
         return str(v).strip().lower()
 
 
@@ -48,18 +39,15 @@ class CategorizationResult(BaseModel):
     category: str
     subcategory: str
     confidence: int
-    matched_by: str  # e.g. "merchant:uber_eats"
-
+    matched_by: str
 
 class Candidate(BaseModel):
-    """Internal helper to store potential matches before picking a winner."""
     category: str
     subcategory: str
     score: int
     source: str
 
-# ==================
-# THE ENGINE
+# ENGINE
 class CategorizationEngine:
     def __init__(self) -> None:
         self.merchants: List[MerchantRule] = []
@@ -67,8 +55,7 @@ class CategorizationEngine:
         self.load_data()
 
     def load_data(self) -> None:
-        """Loads both JSON files. Skips bad records instead of crashing."""
-        # 1. Load Merchants
+        # Load Merchants
         if settings.merchants_file.exists():
             try:
                 with open(settings.merchants_file, "r") as f:
@@ -95,7 +82,7 @@ class CategorizationEngine:
         else:
             logger.warning(f"Merchants file missing at {settings.merchants_file}")
 
-        # 2. Load Patterns
+        # Load Patterns
         if settings.patterns_file.exists():
             try:
                 with open(settings.patterns_file, "r") as f:
@@ -123,13 +110,6 @@ class CategorizationEngine:
             logger.warning(f"Patterns file missing at {settings.patterns_file}")
 
     def _score_match(self, text: str, pattern: str) -> int:
-        """
-        Scoring Heuristic:
-        - Ignore patterns shorter than 3 chars (too noisy).
-        - 0 if no match.
-        - Length of pattern * 10 if match.
-        Assumes both `text` and `pattern` are already lowercased.
-        """
         if len(pattern) < 2:
             return 0
         if pattern in text:
@@ -137,12 +117,6 @@ class CategorizationEngine:
         return 0
 
     def categorize(self, description: str) -> CategorizationResult:
-        """
-        The Main Logic:
-        1. Find all candidates (Merchant & Pattern).
-        2. Score them.
-        3. Pick the winner (highest score).
-        """
         candidates: List[Candidate] = []
         desc_clean = str(description).strip().lower()
 

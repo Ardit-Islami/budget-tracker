@@ -34,7 +34,7 @@ class TransactionSchema(BaseModel):
         except Exception as e:
             raise ValueError(f"Unparseable date: {s}") from e
 
-    # Fix messy currency strings before validation
+    # Fix messy currency strings 
     @field_validator('paid_out', 'paid_in', mode='before')
     def clean_currency(cls, v):
         if pd.isna(v) or v == "":
@@ -45,10 +45,9 @@ class TransactionSchema(BaseModel):
         except ValueError:
             return 0.0
 
-# ==================
 # HELPER FUNCTIONS
 def _normalize_column_name(name: object) -> str:
-    # Turn anything into a clean, comparable column name
+    # Clean comparable column names
     s = str(name)
     s = s.replace("\ufeff", "").strip()
     return s
@@ -93,12 +92,11 @@ def find_header_row(file_path: Path, sheet_name: int = 0) -> Optional[pd.DataFra
         logger.exception(f"Failed to read file {file_path}")
         return None
 
-# ==================
 # TRANSFORMATIONS
 def transform_aqua(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     # Merge Desc + Note
-    df['Description'] = df['Description'].fillna('') + ' ' + df['Note'].fillna('')
+    df['Description'] = df['Description'].fillna('') + ' ' + df['Note'].fillna('') # type: ignore
     df['Description'] = df['Description'].str.strip()
     
     # Logic: Positive = Spend (Paid Out), Negative = Repayment (Paid In)
@@ -120,7 +118,6 @@ def transform_nationwide(df: pd.DataFrame) -> pd.DataFrame:
     df['paid_in'] = df['Paid in']
     return df
 
-# ==================
 # MAPPING
 BANK_CONFIGS = [
     {"cols": settings.cols_aqua, "source": "Aqua", "type": "Credit", "func": transform_aqua},
@@ -128,45 +125,41 @@ BANK_CONFIGS = [
     {"cols": settings.cols_nationwide, "source": "Nationwide", "type": "Debit","func": transform_nationwide}
 ]
 
-# ==================
 # MAIN PROCESSING
 def process_file(file_path):
     filename = file_path.name
     logger.info(f"Processing file: {filename}")
 
-    # 1. Load
+    # Load
     df = find_header_row(file_path)
     if df is None: 
         return
     
     logger.info(f"Columns for {filename}: {list(df.columns)}")
 
-    # Normalize all column names once
+    # Normalize column names
     df.rename(columns=_normalize_column_name, inplace=True)
     cols = set(df.columns)
     
-    # 2. Identify
+    # Identify
     transformed_df = None
     source = None
     acct_type = None
 
     for config in BANK_CONFIGS:
-        # Check if this bank's columns exist in the file
         if config["cols"].issubset(cols):
             logger.info(f"-> Identified as: {config['source'].upper()}")
             
-            # Execute the specific function for this bank
             transformed_df = config["func"](df) 
             source = config["source"]
             acct_type = config["type"]
-            break # Stop looking after the first match
+            break 
 
-    # If loop finished and we found nothing
     if transformed_df is None or source is None or acct_type is None:
         logger.warning(f"Skipping {filename}: Could not match columns to any known bank.")
         return
 
-    # 3. Validate Rows
+    # Validate Rows
     valid_rows = []
     
     for idx, row in transformed_df.iterrows():
@@ -192,7 +185,7 @@ def process_file(file_path):
         logger.warning(f"No valid rows found in {filename}")
         return
 
-    # 4. Save
+    # Save
     df_final = pd.DataFrame(valid_rows)
     stem = file_path.stem
     output_path = settings.staged_dir / f"Staged_{stem}.xlsx"

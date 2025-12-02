@@ -5,16 +5,8 @@ from typing import List
 from budget_tracker.config import settings, logger
 from budget_tracker.engine import engine
 
-
-# ==================
-# 1. PER-FILE PROCESSOR
+# PER-FILE PROCESSOR
 def process_staged_files() -> None:
-    """
-    1. Reads all files in data/staged/ starting with 'Staged_'.
-    2. Categorizes every row using the Engine.
-    3. Saves individual 'Categorized_*.xlsx' files (for debugging).
-    4. Merges everything into the Master file (deduplicated).
-    """
     staged_files: List[Path] = sorted(settings.staged_dir.glob("Staged_*.xlsx"))
 
     if not staged_files:
@@ -34,7 +26,6 @@ def process_staged_files() -> None:
                 logger.warning(f"Skipping {filename} - file is empty.")
                 continue
 
-            # Normalise column names to lowercase for robustness
             original_columns = list(df.columns)
             df.columns = [str(c).strip().lower() for c in df.columns]
 
@@ -47,7 +38,6 @@ def process_staged_files() -> None:
 
             # --- APPLY CATEGORIZATION ---
             def apply_categorization(desc) -> pd.Series:
-                # Handle missing / blank descriptions explicitly
                 if pd.isna(desc) or not str(desc).strip():
                     return pd.Series(
                         ["Uncategorized", "", "none", 0],
@@ -62,14 +52,12 @@ def process_staged_files() -> None:
 
             logger.info(f"   -> Running engine on {len(df)} transactions...")
 
-            # Create new columns from the result
             df[["category", "subcategory", "rule_match", "confidence"]] = (
                 df["description"].apply(apply_categorization)
             )
 
             new_categorized_dfs.append(df)
 
-            # Optional per-file output (debugging / manual inspection)
             output_name = filename.replace("Staged_", "Categorized_")
             output_path = settings.staged_dir / output_name
             df.to_excel(output_path, index=False)
@@ -88,9 +76,6 @@ def process_staged_files() -> None:
 # ==================
 # MASTER FILE MANAGER
 def update_master_file(new_dfs: List[pd.DataFrame]) -> None:
-    """
-    Safely appends new data to the Master file and removes duplicates.
-    """
     logger.info("Updating Master File...")
 
     try:
