@@ -4,12 +4,14 @@ from pydantic import BaseModel, field_validator, ValidationError
 
 from budget_tracker.config import settings, logger
 
+
 # DATA MODELS
 class MerchantRule(BaseModel):
     id: str
     name: str
     category: str
     subcategory: str = ""
+    type: str = "operating"
     aliases: List[str]
 
     @field_validator("aliases", mode="before")
@@ -28,6 +30,7 @@ class PatternRule(BaseModel):
     pattern: str
     category: str
     subcategory: str = ""
+    type: str = "operating"
     weight: float = 1.0
 
     @field_validator("pattern", mode="before")
@@ -38,14 +41,18 @@ class PatternRule(BaseModel):
 class CategorizationResult(BaseModel):
     category: str
     subcategory: str
+    type: str
     confidence: int
     matched_by: str
+
 
 class Candidate(BaseModel):
     category: str
     subcategory: str
+    type: str
     score: int
     source: str
+
 
 # ENGINE
 class CategorizationEngine:
@@ -120,7 +127,7 @@ class CategorizationEngine:
         candidates: List[Candidate] = []
         desc_clean = str(description).strip().lower()
 
-        # --- STAGE 1: MERCHANTS (+50 Bonus) ---
+        # Stage 1: MERCHANTS (+50 Bonus)
         for m in self.merchants:
             for alias in m.aliases:
                 base_score = self._score_match(desc_clean, alias)
@@ -130,12 +137,13 @@ class CategorizationEngine:
                         Candidate(
                             category=m.category,
                             subcategory=m.subcategory,
+                            type=m.type,
                             score=score,
                             source=f"merchant:{m.name}",
                         )
                     )
 
-        # --- STAGE 2: PATTERNS (Weighted) ---
+        # STAGE 2: PATTERNS (Weighted)
         for p in self.patterns:
             base_score = self._score_match(desc_clean, p.pattern)
             if base_score > 0:
@@ -144,16 +152,18 @@ class CategorizationEngine:
                     Candidate(
                         category=p.category,
                         subcategory=p.subcategory,
+                        type=p.type,
                         score=final_score,
                         source=f"pattern:{p.pattern}",
                     )
                 )
 
-        # --- STAGE 3: SELECTION ---
+        # STAGE 3: SELECTION
         if not candidates:
             return CategorizationResult(
                 category="Uncategorized",
                 subcategory="",
+                type="operating",
                 confidence=0,
                 matched_by="none",
             )
@@ -164,6 +174,7 @@ class CategorizationEngine:
         return CategorizationResult(
             category=winner.category,
             subcategory=winner.subcategory,
+            type=winner.type,
             confidence=winner.score,
             matched_by=winner.source,
         )

@@ -5,14 +5,17 @@ from budget_tracker.config import settings, logger
 from budget_tracker import etl
 from budget_tracker.categorise import process_staged_files
 
+
 def _is_tabular_file(path: Path) -> bool:
     return path.suffix.lower() in {".csv", ".xls", ".xlsx"}
+
 
 def run_etl_on_raw_files() -> None:
     raw_dir: Path = settings.raw_dir
 
     raw_files: List[Path] = sorted(
-        f for f in raw_dir.iterdir()
+        f
+        for f in raw_dir.iterdir()
         if f.is_file() and _is_tabular_file(f) and not f.name.startswith("~$")
     )
 
@@ -25,6 +28,7 @@ def run_etl_on_raw_files() -> None:
     for f in raw_files:
         logger.info(f"Running ETL on: {f.name}")
         etl.process_file(f)
+
 
 def main() -> None:
     # 0. Setup

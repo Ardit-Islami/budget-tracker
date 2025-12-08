@@ -1,5 +1,7 @@
 # Python-generated files
 __pycache__/
+.mypy_cache/
+.ruff_cache/
 *.py[oc]
 build/
 dist/
@@ -8,6 +10,10 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Editor/IDE
+.vscode/
+.idea/
 
 # Data Files
 data/raw/*
